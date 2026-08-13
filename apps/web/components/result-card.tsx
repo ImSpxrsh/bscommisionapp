@@ -1,14 +1,9 @@
 import Link from 'next/link';
 import { ArrowRight, MessageSquare } from 'lucide-react';
-import {
-  constraintLabel,
-  formatDuration,
-  type Constraint,
-  type StepType,
-} from '@precedent/core';
+import { constraintLabel, formatDuration, type Constraint } from '@precedent/core';
 import type { SearchDoc } from '@precedent/search';
 
-import { stepColorVar } from './step-icon';
+import { SequenceRibbon } from './sequence-ribbon';
 import { TierBadge } from './tier-badge';
 
 /**
@@ -18,37 +13,12 @@ import { TierBadge } from './tier-badge';
  * verification, duration, a compressed step timeline, starting constraints,
  * outcome, contactability. Nothing else — no author avatar, no view count, no
  * engagement signal of any kind.
- */
-
-/**
- * Compressed step timeline: up to 7 dots colour-coded by step family, using the
- * same encoding as the profile timeline so the shape of a pathway is
- * recognisable before opening it. Setback steps render on the neutral rule
- * colour rather than a hue, matching their recessed treatment elsewhere.
  *
- * Purely indicative of rhythm, so it is aria-hidden — the profile page carries
- * the real ordered list, and the step count beside it is what a screen reader
- * hears.
+ * Hierarchy follows what a reader is deciding between: the transition names the
+ * record, the ribbon shows the shape of the route, and the outcome is the
+ * payload — so the outcome carries primary ink rather than sitting muted in a
+ * footer.
  */
-function StepDots({ doc }: { doc: SearchDoc }) {
-  const shown = doc.stepTypes.slice(0, 7);
-  return (
-    <span className="inline-flex items-center gap-1" aria-hidden="true">
-      {shown.map((type, i) => (
-        <span
-          key={`${type}-${i}`}
-          className="h-1.5 w-1.5 rounded-full"
-          style={{
-            background: stepColorVar(type as StepType) ?? 'var(--setback-rule)',
-          }}
-        />
-      ))}
-      {doc.stepCount > 7 && (
-        <span className="tnum text-2xs text-ink-muted">+{doc.stepCount - 7}</span>
-      )}
-    </span>
-  );
-}
 
 export function ResultCard({ doc }: { doc: SearchDoc }) {
   return (
@@ -65,14 +35,18 @@ export function ResultCard({ doc }: { doc: SearchDoc }) {
           <TierBadge tier={doc.verificationTier} />
         </div>
 
+        {/* The shape of the route, before the reader commits to opening it. */}
+        <SequenceRibbon
+          stepTypes={doc.stepTypes}
+          stepCount={doc.stepCount}
+          className="mt-2.5"
+        />
+
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-muted">
           <span className="tnum font-medium text-ink-secondary">
             {formatDuration(doc.durationMonths)}
           </span>
-          <span className="flex items-center gap-1.5">
-            <StepDots doc={doc} />
-            <span className="tnum">{doc.stepCount} steps</span>
-          </span>
+          <span className="tnum">{doc.stepCount} steps</span>
           {doc.hasObstaclesDocumented && <span>Obstacles documented</span>}
           <span className="tnum">Completeness {doc.completenessScore}</span>
         </div>
@@ -92,9 +66,11 @@ export function ResultCard({ doc }: { doc: SearchDoc }) {
         )}
 
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2.5">
-          <p className="text-sm text-ink-secondary">
+          <p className="text-sm font-medium text-ink">
             {doc.outcomeResult}
-            {doc.industry && <span className="text-ink-muted"> · {doc.industry}</span>}
+            {doc.industry && (
+              <span className="font-normal text-ink-muted"> · {doc.industry}</span>
+            )}
           </p>
           {doc.contactable && (
             <span className="inline-flex items-center gap-1 text-2xs font-medium text-accent">

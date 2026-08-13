@@ -149,6 +149,45 @@ never an automatic inversion of the light set. Dark declarations appear under bo
 `prefers-color-scheme: dark` and `[data-theme='dark']` so an explicit user toggle
 wins in both directions.
 
+### 9. The sequence ribbon is a third surface for the step encoding
+
+Override #4 fixes the two channels allowed to carry saturated colour. The
+**sequence ribbon** (`apps/web/components/sequence-ribbon.tsx`) is a new surface
+for the *second* of those channels, not a third channel: one segment per step, in
+order, on the existing step-family hues, shown on result cards, the landing-page
+index rows, and the profile header.
+
+It replaces the earlier treatment of seven 6px dots.
+
+**Why:** the shape of a route — how long it ran, what kind of work it was made
+of, and where it stalled — is the thing a reader scans for, and a dot row was too
+small to carry any of it. At ribbon scale the encoding becomes readable
+pre-click: a route that is mostly coursework reads blue, and a stall reads as a
+grey notch in the run.
+
+Two constraints keep this inside override #4 rather than widening it:
+
+- The ribbon introduces **no new hues**. It draws only from the seven step
+  families already defined in `packages/ui-tokens/src/step-types.ts`.
+- It always appears with `SequenceLegend`. Colour that a reader cannot decode is
+  decoration, and decoration is exactly what override #4 exists to prevent.
+
+`setback` keeps its recessed treatment from override #5 — the neutral rule colour
+at reduced height, so a stall reads as an interruption rather than an error.
+
+### 10. Compare packs steps into lanes
+
+The comparison view gave every step its own row, which made each pathway a
+staircase as tall as its step count and pushed the second route below the fold.
+
+**Override:** steps are greedily packed into the fewest non-overlapping lanes, so
+a sequential route collapses to a single lane and a second lane appears only
+where two steps genuinely ran at once. Year gridlines run behind the bars.
+
+**Why:** a comparison you have to scroll between is not a comparison. Packing
+puts two routes on one screen while still showing overlap where it exists —
+which is precisely when the reader needs to see it.
+
 ## Retained from MASTER without change
 
 - Inter as the UI/chrome family, and the navy `#1E3A5F` primary

@@ -26,17 +26,51 @@ const MONTH_WIDTH = 5.2;
 /** A short step still has to be visible, so bars have a floor width. */
 const MIN_BAR_WIDTH = 14;
 
-function LaneBar({ step, originMonth }: { step: Step; originMonth: string }) {
-  const offset = monthsBetween(originMonth, step.startDate);
+/** Months from the pathway's own origin, and how long the step ran. */
+function stepExtent(step: Step, originMonth: string) {
+  const start = monthsBetween(originMonth, step.startDate);
   const length = Math.max(monthsBetween(step.startDate, step.endDate ?? step.startDate), 1);
+  return { start, length, end: start + length };
+}
+
+/**
+ * Packs steps into the fewest lanes that keep them non-overlapping.
+ *
+ * One lane per step gives every pathway a staircase as tall as its step count,
+ * which pushes the second route off the screen — and a comparison you have to
+ * scroll between is not a comparison. Most routes are sequential and collapse to
+ * a single lane; a second lane only appears where someone genuinely worked and
+ * studied at once, which is exactly when the reader needs to see the overlap.
+ */
+function packLanes(steps: readonly Step[], originMonth: string): Step[][] {
+  const ordered = [...steps].sort(
+    (a, b) => stepExtent(a, originMonth).start - stepExtent(b, originMonth).start,
+  );
+
+  const lanes: Array<{ steps: Step[]; end: number }> = [];
+  for (const step of ordered) {
+    const { start, end } = stepExtent(step, originMonth);
+    const lane = lanes.find((l) => l.end <= start);
+    if (lane) {
+      lane.steps.push(step);
+      lane.end = end;
+    } else {
+      lanes.push({ steps: [step], end });
+    }
+  }
+  return lanes.map((l) => l.steps);
+}
+
+function LaneBar({ step, originMonth }: { step: Step; originMonth: string }) {
+  const { start, length } = stepExtent(step, originMonth);
   const isSetback = step.type === 'setback';
   const hue = stepColorVar(step.type) ?? 'var(--setback-rule)';
 
   return (
     <div
-      className="group relative"
+      className="group absolute top-0"
       style={{
-        marginLeft: `${offset * MONTH_WIDTH}px`,
+        left: `${start * MONTH_WIDTH}px`,
         width: `${Math.max(length * MONTH_WIDTH, MIN_BAR_WIDTH)}px`,
       }}
       title={`${stepTypeMeta[step.type].label}: ${step.title} (${formatDuration(length)})`}
@@ -74,6 +108,8 @@ export default async function ComparePage({
   }
 
   const longest = Math.max(...pathways.map((p) => p.durationMonths));
+  const yearCount = Math.ceil(longest / 12) + 1;
+  const chartWidth = yearCount * 12 * MONTH_WIDTH;
 
   // Which step families appear, so the legend lists only what is on screen.
   const familiesShown = [
@@ -107,7 +143,7 @@ export default async function ComparePage({
         {/* Shared time axis. */}
         <div className="min-w-[640px]">
           <div className="mb-1 flex" aria-hidden="true">
-            {Array.from({ length: Math.ceil(longest / 12) + 1 }).map((_, year) => (
+            {Array.from({ length: yearCount }).map((_, year) => (
               <span
                 key={year}
                 className="tnum shrink-0 border-l border-border pl-1 text-2xs text-ink-muted"
@@ -138,11 +174,26 @@ export default async function ComparePage({
                   </span>
                 </div>
 
-                {/* One lane per step, so overlapping work and study stay legible. */}
-                <ol className="space-y-0.5 border-l border-border pl-1">
-                  {pathway.steps.map((step) => (
-                    <li key={step.id}>
-                      <LaneBar step={step} originMonth={origin} />
+                {/* Packed lanes: sequential steps share one row, and a second
+                    row appears only where two steps genuinely overlap. */}
+                <ol className="relative" style={{ width: `${chartWidth}px` }}>
+                  {/* Year gridlines, so a divergence can be read off the axis
+                      rather than estimated. */}
+                  <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+                    {Array.from({ length: yearCount }).map((_, year) => (
+                      <span
+                        key={year}
+                        className="absolute top-0 h-full border-l border-border"
+                        style={{ left: `${year * 12 * MONTH_WIDTH}px` }}
+                      />
+                    ))}
+                  </div>
+
+                  {packLanes(pathway.steps, origin).map((lane, i) => (
+                    <li key={i} className="relative mb-0.5 h-5">
+                      {lane.map((step) => (
+                        <LaneBar key={step.id} step={step} originMonth={origin} />
+                      ))}
                     </li>
                   ))}
                 </ol>

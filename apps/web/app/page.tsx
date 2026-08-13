@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 import { PathwaySearchBar } from '@/components/pathway-search-bar';
+import { SequenceLegend, SequenceRibbon } from '@/components/sequence-ribbon';
 import { TierBadge } from '@/components/tier-badge';
 import { getExamplePathways, getStats, getTaxonomy } from '@/lib/data';
 import { formatDuration } from '@precedent/core';
@@ -13,10 +14,10 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-[840px] px-4 py-12">
-      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
         Has someone already done what you are trying to do?
       </h1>
-      <p className="mt-2 max-w-[60ch] text-md text-ink-secondary">
+      <p className="mt-3 max-w-[60ch] text-md text-ink-secondary">
         Precedent indexes real transitions and the exact sequence of steps each
         person took — including the parts that did not work.
       </p>
@@ -38,22 +39,33 @@ export default function HomePage() {
             <li key={doc.id}>
               <Link
                 href={`/p/${doc.id}`}
-                className="card card-interactive flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5"
+                className="card card-interactive block px-3 py-2.5"
               >
-                <span className="text-sm font-semibold">{doc.fromLabel}</span>
-                <ArrowRight size={13} aria-hidden="true" className="text-ink-muted" />
-                <span className="text-sm font-semibold">{doc.toLabel}</span>
-                <TierBadge tier={doc.verificationTier} />
-                <span className="tnum ml-auto text-xs text-ink-muted">
-                  {formatDuration(doc.durationMonths)} · {doc.stepCount} steps
-                </span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-sm font-semibold">{doc.fromLabel}</span>
+                  <ArrowRight size={13} aria-hidden="true" className="text-ink-muted" />
+                  <span className="text-sm font-semibold">{doc.toLabel}</span>
+                  <TierBadge tier={doc.verificationTier} />
+                  <span className="tnum ml-auto text-xs text-ink-muted">
+                    {formatDuration(doc.durationMonths)} · {doc.stepCount} steps
+                  </span>
+                </div>
+                <SequenceRibbon
+                  stepTypes={doc.stepTypes}
+                  stepCount={doc.stepCount}
+                  className="mt-2"
+                />
               </Link>
             </li>
           ))}
         </ul>
-        <p className="tnum mt-3 text-xs text-ink-muted">
-          {stats.pathways} pathways across {stats.transitions} transitions.
-        </p>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <SequenceLegend />
+          <p className="tnum text-xs text-ink-muted">
+            {stats.pathways} pathways across {stats.transitions} transitions.
+          </p>
+        </div>
       </section>
 
       <section className="mt-10 border-t border-border pt-6" aria-labelledby="how-heading">

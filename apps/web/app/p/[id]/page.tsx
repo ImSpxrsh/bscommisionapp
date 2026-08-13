@@ -10,6 +10,7 @@ import {
 } from '@precedent/core';
 import { signalLabel, tierStyle } from '@precedent/ui-tokens';
 
+import { SequenceLegend, SequenceRibbon } from '@/components/sequence-ribbon';
 import { Timeline } from '@/components/timeline';
 import { TierBadge } from '@/components/tier-badge';
 import { getProfile } from '@/lib/data';
@@ -49,6 +50,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               <span>{person.displayName}</span>
               {person.isAnonymous && <span className="text-2xs">(anonymous)</span>}
             </div>
+
+            {/* Minimap of the sequence below — the same encoding the reader has
+                already learned on the results page, so the shape of this route
+                is recognisable before scrolling into the step detail. */}
+            <SequenceRibbon
+              stepTypes={pathway.steps.map((s) => s.type)}
+              stepCount={pathway.steps.length}
+              className="mt-3"
+            />
+            <SequenceLegend className="mt-2" />
 
             {!hasFriction && !pathway.attestedNoObstacles && (
               <p className="mt-3 flex items-start gap-2 rounded-md border border-border bg-surface-sunken px-3 py-2 text-xs text-ink-secondary">

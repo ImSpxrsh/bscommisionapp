@@ -5,6 +5,7 @@ import { filtersFromSearchParams, filtersToQueryString, sortModeLabel, SORT_MODE
 import { FacetRail, FilterChips } from '@/components/facet-rail';
 import { MobileFilterSheet } from '@/components/mobile-filter-sheet';
 import { ResultCard } from '@/components/result-card';
+import { SequenceLegend } from '@/components/sequence-ribbon';
 import { runSearch } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
@@ -27,10 +28,15 @@ export default async function SearchPage({
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6">
+    <div className="mx-auto max-w-[1120px] px-4 py-6">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* The rail stays put while results scroll — filtering is a bulk-scanning
+            activity, and losing the facet counts off the top of the page is what
+            makes a filter set feel unnavigable. */}
         <div className="hidden lg:block">
-          <FacetRail facets={result.facets} filters={filters} />
+          <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1">
+            <FacetRail facets={result.facets} filters={filters} />
+          </div>
         </div>
 
         <div>
@@ -84,6 +90,8 @@ export default async function SearchPage({
 
           {result.total > 0 ? (
             <>
+              <SequenceLegend className="mb-3 border-b border-border pb-3" />
+
               <ul className="space-y-2">
                 {result.docs.map((doc) => (
                   <ResultCard key={doc.id} doc={doc} />
