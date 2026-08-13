@@ -30,6 +30,21 @@ export const neutral = {
 } as const;
 
 /**
+ * Warm neutrals for the marketing surface only.
+ *
+ * The slate ramp above is correct for the tool — it is cool, recessive, and gets
+ * out of the way of the step-type hues. It is also unwelcoming, which is the
+ * wrong first impression for a product whose primary reader is a 16-year-old
+ * deciding whether this is for them. The landing page sits on these instead;
+ * every surface behind actual data stays slate. See OVERRIDES.md #11.
+ */
+export const warm = {
+  50: '#FDFBF7',
+  100: '#F7F2E9',
+  200: '#EDE4D6',
+} as const;
+
+/**
  * Dark-mode planes. Slate-tinted rather than pure black so the neutral ramp and
  * the dark step-type hues sit on a consistent surface. `surface` is the value
  * the categorical palette was validated against — see OVERRIDES.md.
@@ -113,6 +128,14 @@ export const fontSize = {
   '2xl': { rem: '1.75rem', px: 28, lineHeight: 1.28 },
   '3xl': { rem: '2.25rem', px: 36, lineHeight: 1.2 },
   '4xl': { rem: '3rem', px: 48, lineHeight: 1.08 },
+  /**
+   * Display sizes. Marketing surfaces only — the landing page and the empty
+   * hero of a first run. See OVERRIDES.md #11: override #1 caps the *tool* type
+   * scale at 4xl because oversized type costs rows on a results list, and
+   * explicitly names oversized display type as a landing-page device.
+   */
+  '5xl': { rem: '3.75rem', px: 60, lineHeight: 1.04 },
+  '6xl': { rem: '4.5rem', px: 72, lineHeight: 1 },
 } as const;
 
 export const fontWeight = {
@@ -139,6 +162,13 @@ export const fontFamily = {
   ui: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
   text: ['Source Serif 4', 'Iowan Old Style', 'Georgia', 'serif'],
   mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+  /**
+   * Rounded geometric, for marketing headlines only — never for data, labels,
+   * or anything inside the tool. Inter at 72px is competent and cold; the
+   * rounded terminals are most of what makes a landing page read as approachable
+   * to a sixteen-year-old. See OVERRIDES.md #11.
+   */
+  display: ['Nunito', 'Inter', 'system-ui', 'sans-serif'],
 } as const;
 
 /** 4px base grid. */

@@ -5,7 +5,7 @@
  * Dark mode is a selected set of steps, never an automatic inversion.
  */
 
-import { brand, dark, neutral, status } from './primitives.js';
+import { brand, dark, neutral, status, warm } from './primitives.js';
 
 export type ColorPair = { light: string; dark: string };
 
@@ -22,6 +22,15 @@ export const color = {
   surfaceHover: { light: neutral[100], dark: '#1F2937' },
   /** Selected / active row. */
   surfaceSelected: { light: brand[50], dark: '#16283D' },
+
+  /**
+   * Marketing surfaces. Warm in light mode so the landing page reads as an
+   * invitation rather than a database; dark mode keeps the product planes,
+   * because a cream that works at 2pm reads as a glare at midnight.
+   */
+  landingBg: { light: warm[50], dark: dark.page },
+  landingSurface: { light: neutral[0], dark: dark.surface },
+  landingSunken: { light: warm[100], dark: dark.elevated },
 
   /** Primary body and heading ink. */
   ink: { light: neutral[900], dark: '#F1F5F9' },

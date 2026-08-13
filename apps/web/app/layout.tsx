@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Source_Serif_4 } from 'next/font/google';
+import { Inter, Nunito, Source_Serif_4 } from 'next/font/google';
 
 import { SiteHeader } from '@/components/site-header';
 
@@ -22,6 +22,14 @@ const sourceSerif = Source_Serif_4({
   display: 'swap',
 });
 
+/** Marketing headlines only. Never used inside the tool — see OVERRIDES.md #11. */
+const nunito = Nunito({
+  subsets: ['latin'],
+  weight: ['700', '800', '900'],
+  variable: '--font-display-loaded',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'Precedent — find people who already made your transition',
   description:
@@ -30,7 +38,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${sourceSerif.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${sourceSerif.variable} ${nunito.variable}`}
+    >
       <body className="min-h-screen">
         {/* Keyboard users must be able to reach the results without tabbing
             through the entire facet rail. */}

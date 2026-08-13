@@ -188,6 +188,53 @@ where two steps genuinely ran at once. Year gridlines run behind the bars.
 puts two routes on one screen while still showing overlap where it exists —
 which is precisely when the reader needs to see it.
 
+### 11. The landing page is a marketing surface, and is styled as one
+
+Overrides #1 and #4 keep the type scale capped at 48px and the palette neutral.
+Both were written about the **tool** — results lists, timelines, profiles — and
+#1 says so explicitly: *"oversized display type is a landing-page device. It
+costs vertical space on exactly the surfaces — results lists, timelines — that
+need to show many rows."*
+
+The landing page is not one of those surfaces. It shows one message and six
+cards, and its primary reader is a sixteen-year-old deciding in about four
+seconds whether this product is for them. Styled like the tool, it read as a
+database console and answered that question wrong.
+
+**Override, scoped to `apps/web/app/page.tsx` only:**
+
+| | Tool | Landing |
+|---|---|---|
+| Display scale | caps at `4xl` (48px) | `5xl` / `6xl` (60/72px) |
+| Headline face | Inter | Nunito (`fontFamily.display`) |
+| Page surface | slate `pageBg` | warm `landingBg` |
+| Primary action | 36px rounded-md | 48px pill |
+
+**Why these four and nothing else:**
+
+- **Scale and roundness** carry almost all of the difference in how approachable
+  a page feels. Inter at 72px is competent and cold.
+- **Warmth** is the cheapest signal that a page was made for a person rather than
+  for a query. The slate ramp is correct behind data and unwelcoming in front
+  of it.
+- The **pill** reads as a button to someone who has never used the product.
+
+**What this override does NOT license:**
+
+- No new hue. The landing uses brand navy and the existing step-family palette;
+  override #4 is untouched, and there is still no third saturated channel.
+- Nothing here crosses into the tool. `font-display`, the `5xl`/`6xl` sizes, and
+  the `landing-*` surfaces appear on the landing page and nowhere else. A results
+  row set in Nunito would be a bug.
+- No claims invented for effect. The social-proof line is generated from
+  `getStats()`, and the six cards are real records from the index — the landing
+  page renders the same live components as the tool, so it cannot drift from
+  what the product actually is.
+
+The warm surfaces are held to the same contrast gate as every product surface —
+`landingBg`, `landingSurface`, and `landingSunken` are asserted at ≥4.5:1 against
+body ink in both themes in `packages/ui-tokens/test/contrast.test.js`.
+
 ## Retained from MASTER without change
 
 - Inter as the UI/chrome family, and the navy `#1E3A5F` primary

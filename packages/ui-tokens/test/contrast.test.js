@@ -38,7 +38,17 @@ for (const mode of MODES) {
   const c = theme[mode].color;
 
   test(`${mode}: body ink clears 4.5:1 on every surface`, () => {
-    for (const surface of ['surface', 'pageBg', 'surfaceElevated', 'surfaceSunken']) {
+    for (const surface of [
+      'surface',
+      'pageBg',
+      'surfaceElevated',
+      'surfaceSunken',
+      // The marketing surfaces are warm rather than slate, so they get the same
+      // gate as the product ones — a landing page is not exempt from contrast.
+      'landingBg',
+      'landingSurface',
+      'landingSunken',
+    ]) {
       const ratio = contrast(c.ink, c[surface]);
       assert.ok(
         ratio >= 4.5,
