@@ -1,0 +1,524 @@
+// Precedent — canonical data model.
+//
+// Mirrors the zod schemas in packages/core. `packages/core` is the source of
+// truth for shape and validation; this file is the persistence mirror.
+// test/schema-parity.test.js asserts the two agree on the enums, so a step type
+// added in one place and not the other fails the build.
+//
+// Deletion is real deletion (see TRUST.md #5): rows are removed, not tombstoned,
+// and `onDelete: Cascade` propagates to every child. The DeletionReceipt table
+// is the ONLY thing that survives a delete, and it holds no biography — just
+// enough to prove the erasure happened and to drive index/cache purges.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum NodeType {
+  education
+  role
+  status
+}
+
+enum NodeKind {
+  institution
+  major
+  role
+  status
+}
+
+enum TaxonomySource {
+  ipeds
+  cip
+  onet
+  curated
+  user_submitted
+}
+
+enum TransitionType {
+  major_switch
+  field_switch
+  institution_jump
+  industry_entry
+  grad_school
+  non_traditional_entry
+  geographic
+  career_restart
+}
+
+enum StepType {
+  coursework
+  internship
+  research
+  exam
+  certification
+  job
+  transfer
+  application
+  networking
+  project
+  setback
+  pivot
+  financial
+  relocation
+}
+
+enum VerificationTier {
+  unverified
+  self_attested
+  source_linked
+  institution_verified
+}
+
+enum SignalKind {
+  linkedin_oauth
+  edu_email_domain
+  employer_email_domain
+  public_profile_url
+  credential_upload
+  manual_review
+}
+
+enum SignalStatus {
+  pending
+  passed
+  failed
+  expired
+}
+
+enum GpaBand {
+  below_2_5
+  b2_5_2_9
+  b3_0_3_4
+  b3_5_3_7
+  b3_8_4_0
+}
+
+enum CompensationBand {
+  unpaid
+  under_50k
+  b50k_75k
+  b75k_100k
+  b100k_150k
+  b150k_200k
+  b200k_300k
+  over_300k
+  prefer_not_to_say
+}
+
+enum LocationPrecision {
+  city
+  metro
+  country
+}
+
+enum YearPrecision {
+  exact
+  band
+}
+
+enum FieldVisibility {
+  public
+  private
+}
+
+enum ContactMode {
+  relay
+  none
+}
+
+enum ConsentStatus {
+  not_required
+  pending
+  granted
+  revoked
+  expired
+}
+
+enum ModerationState {
+  published
+  pending_review
+  flagged
+  removed
+}
+
+enum ReviewAction {
+  approved
+  rejected
+  merged
+  removed
+  restored
+  signal_verified
+  signal_rejected
+  note
+}
+
+// ---------------------------------------------------------------- accounts
+
+model Account {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Age is stored as a birth year band, not a birthdate — enough to gate
+  // submission without collecting a precise identifier.
+  birthYear Int?
+
+  // Attestation is what earns `self_attested`. Stored with a timestamp so the
+  // tier is always explainable.
+  attestedAt DateTime?
+
+  isAdmin Boolean @default(false)
+
+  parentalConsent ParentalConsent?
+  pathways        Pathway[]
+  savedSearches   SavedSearch[]
+  collections     Collection[]
+  submittedReports Report[]        @relation("ReportReporter")
+  reviewActions   ReviewLogEntry[]
+
+  @@index([email])
+}
+
+// Consent for 16–17 submitters. Revocation unpublishes immediately — see
+// isPubliclyVisibleUnderConsent() in packages/core.
+model ParentalConsent {
+  id                  String        @id @default(cuid())
+  accountId           String        @unique
+  account             Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  status              ConsentStatus @default(pending)
+  // Hashed, never stored in the clear.
+  guardianContactHash String?
+  grantedAt           DateTime?
+  revokedAt           DateTime?
+  evidenceRef         String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+// ---------------------------------------------------------------- taxonomy
+
+model TaxonomyNode {
+  id        String         @id
+  kind      NodeKind
+  type      NodeType
+  label     String
+  synonyms  String[]
+  source    TaxonomySource
+  sourceRef String?
+
+  // Provisional (user-submitted) nodes are searchable but excluded from facet
+  // counts, so a typo never becomes a facet with a count of 1.
+  canonical Boolean @default(false)
+
+  // Set when an admin merges this node away; reads follow the pointer.
+  mergedIntoId String?
+  mergedInto   TaxonomyNode?  @relation("NodeMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom   TaxonomyNode[] @relation("NodeMerge")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind, canonical])
+  @@index([label])
+}
+
+// ---------------------------------------------------------------- pathway
+
+model Pathway {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    Account  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // -- transition
+  fromType         NodeType
+  fromLabel        String
+  fromNormalizedId String?
+  toType           NodeType
+  toLabel          String
+  toNormalizedId   String?
+  canonicalSlug    String
+  transitionType   TransitionType
+
+  // -- person
+  displayName    String?
+  pseudonym      String
+  // PRIVATE. Held for verification only. Never serialized to any viewer —
+  // toPublicPathway() in packages/core is the only sanctioned projection.
+  realName       String?
+  isAnonymous    Boolean  @default(false)
+  backgroundTags String[]
+  graduationYear Int?
+  graduationYearPrecision YearPrecision @default(exact)
+
+  // -- starting point
+  institution      String?
+  major            String
+  gpaBand          GpaBand?
+  priorExperience  String?
+  constraints      String[]
+
+  // -- outcome
+  outcomeResult       String
+  outcomeOrganization String?
+  outcomeDate         String // YYYY-MM
+  compensationBand    CompensationBand?
+  outcomeIsFinal      Boolean           @default(true)
+
+  // -- reflection
+  whatIdRepeat    String[]
+  whatIdSkip      String[]
+  biggestObstacle String?
+  luckFactors     String[]
+  costEstimate    String?
+
+  // Explicit claim that there genuinely were no obstacles. Submission blocks on
+  // zero obstacles unless this is set, so "frictionless" is never an omission.
+  attestedNoObstacles Boolean @default(false)
+
+  // -- verification (tier is DERIVED from signals, never written directly)
+  verificationTier VerificationTier @default(unverified)
+  lastReviewedAt   DateTime?
+  reviewerNote     String?
+
+  // -- contact
+  contactIsOpen    Boolean     @default(false)
+  contactMode      ContactMode @default(none)
+  contactTopics    String[]
+  contactRateLimit Int         @default(3)
+  // PRIVATE relay address. Never serialized under any tier or contact state.
+  relayAddress     String?
+
+  // -- moderation
+  moderationState ModerationState @default(pending_review)
+
+  // -- meta. Counters exist for the submitter's own view and for abuse
+  // detection. They are NEVER ranking inputs — see packages/search.
+  viewCount   Int      @default(0)
+  savedCount  Int      @default(0)
+  reportCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  completenessScore Int @default(0)
+
+  steps          Step[]
+  signals        VerificationSignal[]
+  visibility     FieldVisibilitySetting[]
+  locations      PathwayLocation[]
+  reports        Report[]
+  savedBy        SavedPathway[]
+  contactThreads ContactThread[]
+  reviewLog      ReviewLogEntry[]
+
+  @@index([canonicalSlug])
+  @@index([fromNormalizedId, toNormalizedId])
+  @@index([verificationTier])
+  @@index([moderationState])
+  @@index([authorId])
+}
+
+model Step {
+  id        String  @id @default(cuid())
+  pathwayId String
+  pathway   Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+
+  order        Int
+  startDate    String // YYYY-MM
+  endDate      String? // null means ongoing
+  ongoing      Boolean  @default(false)
+  type         StepType
+  title        String
+  organization String?
+  description  String?
+  wasPivotal   Boolean  @default(false)
+
+  obstacleDescription String?
+  obstacleResolution  String?
+
+  evidenceUrl String?
+  advice      String?
+
+  @@unique([pathwayId, order])
+  @@index([pathwayId])
+  @@index([type])
+}
+
+model VerificationSignal {
+  id        String  @id @default(cuid())
+  pathwayId String
+  pathway   Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+
+  kind      SignalKind
+  status    SignalStatus @default(pending)
+  checkedAt DateTime?
+  // Opaque pointer to the stored artifact. Never the artifact, never rendered.
+  evidenceRef String?
+  // The specific claim corroborated: a Step id, or 'identity'. This is what
+  // makes verification granular rather than a badge on a person.
+  claimRef  String       @default("identity")
+  // Source-linked signals expire and are re-checked annually.
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([pathwayId])
+  @@index([status, expiresAt])
+}
+
+model FieldVisibilitySetting {
+  id        String          @id @default(cuid())
+  pathwayId String
+  pathway   Pathway         @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  field     String
+  visibility FieldVisibility
+
+  @@unique([pathwayId, field])
+}
+
+model PathwayLocation {
+  id        String            @id @default(cuid())
+  pathwayId String
+  pathway   Pathway           @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  country   String
+  metro     String?
+  city      String?
+  precision LocationPrecision @default(metro)
+
+  @@index([pathwayId])
+}
+
+// ---------------------------------------------------------------- saved
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String
+  // Full filter state, stored exactly as it appears in the URL so a saved
+  // search re-runs identically on web and mobile.
+  queryState Json
+  // Weekly digest at most. No push spam — see TRUST.md.
+  notifyByEmail Boolean  @default(false)
+  lastNotifiedAt DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([accountId])
+}
+
+model Collection {
+  id        String         @id @default(cuid())
+  accountId String
+  account   Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime       @default(now())
+  items     SavedPathway[]
+
+  @@unique([accountId, name])
+}
+
+model SavedPathway {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  pathwayId    String
+  pathway      Pathway    @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  savedAt      DateTime   @default(now())
+
+  @@unique([collectionId, pathwayId])
+  @@index([pathwayId])
+}
+
+// ---------------------------------------------------------------- contact relay
+
+// Contact is a relay: the sender never learns an address, and the recipient can
+// mute or sever a thread globally or per-thread at any time.
+model ContactThread {
+  id        String  @id @default(cuid())
+  pathwayId String
+  pathway   Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+
+  // Opaque handles. Neither side's real address is stored on the thread.
+  senderAccountId String
+  // Required context — blank outreach is rejected at the API boundary.
+  context   String
+  topic     String?
+
+  isMuted   Boolean  @default(false)
+  isSevered Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  messages ContactMessage[]
+
+  @@index([pathwayId])
+  @@index([senderAccountId, createdAt])
+}
+
+model ContactMessage {
+  id        String        @id @default(cuid())
+  threadId  String
+  thread    ContactThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  fromOwner Boolean
+  body      String
+  sentAt    DateTime      @default(now())
+
+  @@index([threadId])
+}
+
+// ---------------------------------------------------------------- moderation
+
+model Report {
+  id         String  @id @default(cuid())
+  pathwayId  String
+  pathway    Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  reporterId String?
+  reporter   Account? @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+
+  // impersonation | misrepresentation | fabrication | privacy | other
+  reason  String
+  details String?
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([pathwayId])
+  @@index([resolvedAt])
+}
+
+// Append-only audit log. Sized for a single part-time reviewer: no assignment
+// model, one log, risk-ranked triage happens in the query layer.
+model ReviewLogEntry {
+  id        String       @id @default(cuid())
+  pathwayId String?
+  pathway   Pathway?     @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  reviewerId String?
+  reviewer  Account?     @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  action    ReviewAction
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@index([pathwayId])
+  @@index([createdAt])
+}
+
+// The only record that survives a pathway deletion. Holds no biography — it
+// exists to prove the erasure and to drive purges of the search index, caches,
+// and similar-pathway results within the SLA.
+model DeletionReceipt {
+  id            String    @id @default(cuid())
+  pathwayId     String    @unique
+  requestedAt   DateTime  @default(now())
+  indexPurgedAt DateTime?
+  cachePurgedAt DateTime?
+  completedAt   DateTime?
+
+  @@index([completedAt])
+}

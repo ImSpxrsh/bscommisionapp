@@ -1,0 +1,31 @@
+{
+  "name": "precedent",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Precedent — search real people who already made the transition you are attempting, and see the exact sequence of steps they took.",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "tokens": "npm run build --workspace @precedent/ui-tokens",
+    "web": "npm run dev --workspace @precedent/web",
+    "mobile": "npm run start --workspace @precedent/mobile",
+    "api": "npm run dev --workspace @precedent/api"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "packageManager": "npm@11.6.2"
+}
